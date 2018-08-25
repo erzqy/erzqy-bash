@@ -1,0 +1,13 @@
+#!/bin/bash
+
+banyak=''
+for lokasi in  `find ./ -iname paket*` ; do 
+  banyak=$banyak' '`realpath $lokasi`
+done
+
+for lokasi in $banyak ; do 
+  asli=`realpath $lokasi`
+  folder=`dirname $asli`
+  cd $folder 
+  $asli
+done

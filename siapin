@@ -1,0 +1,28 @@
+#!/bin/bash
+
+argumen=$*
+
+for paket in $argumen; do
+  echo -e "1. Membuat direktori '$paket' \c"
+  if [[ ! -d $paket ]]; then
+    mkdir $paket
+    echo -e 'dibuat'
+  else 
+    echo -e 'sudah ada'
+  fi
+  if [[ ! -d $paket ]]; then
+    echo -e "  Gagal membuat direktori '$paket'. penyiapan dibatalkan"
+    exit
+  fi
+
+  echo -e "2. Pindah direktori ke `realpath $paket`"
+  cd $paket
+  
+  echo -e "3. Siapkan pemasangan"
+  pasangin $paket -b -s -in -un -md
+  
+  echo -e "4. Kembali ke direktori asal"
+  cd ..
+
+  echo -e "5. Selesai"
+done

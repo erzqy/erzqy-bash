@@ -1,0 +1,13 @@
+#!/bin/bash
+
+ubahBerkas() {
+  lokasi=$*
+  lokasiBaru=`echo $lokasi | sed s/\.md/\.html/g | sed s/\.markdown/\.html/g`
+
+  markdown --html4tags "$lokasi" > "$lokasiBaru"
+}
+
+if [[ $# -gt 0 ]]; then
+  berkas=$*
+  ubahBerkas $berkas
+fi

@@ -1,0 +1,15 @@
+#!/bin/bash
+
+cariDi() {
+  lokasi=$*
+
+  find $lokasi -iname '* *' -exec ganti-spasi '{}' \;
+}
+
+if [[ $# -gt 0 ]]; then
+  for direktori in $*; do
+    if [[ -d $direktori ]]; then
+      cariDi $direktori
+    fi
+  done
+fi

@@ -1,0 +1,563 @@
+#!/bin/bash
+
+aptDir=/var/lib/apt/lists
+tampilGUI=false
+tampilDetil=false
+tanyaSimpan=true
+tanyaPasang=true
+tanyaUnduh=true
+tanpaBanner=false
+
+tidakUnduh=false
+tidakPasang=false
+tidakSimpan=false
+
+modeDiam=false
+
+warnaMerah='\033[0m\033[31m'
+warnaPutih='\033[0m\033[1;37m'
+warnaAbu='\033[0m\033[37m'
+warnaAsal='\033[0m'
+warnaBiruCerah='\033[0m\033[1;34m'
+
+# tipe teks
+teksAsal='\033[0m'
+teksTebal='\033[1m'
+teksGarisBawah='\033[4m'
+
+# tampilkan teks
+tampil() {
+  if [[ $modeDiam = false ]]; then
+    echo -e "  $*"
+  fi
+}
+
+# fungsi banner
+banner() {
+  tampil "$teksTebal+$teksAsal------------------------------------------$teksTebal+$teksAsal"
+  tampil "] * *                                  * * ["
+  tampil "]   Selamat datang di program '"$teksTebal"pasangin$teksAsal'   ["
+  tampil "]                                          ["
+  tampil "]                                  - by "$warnaBiruCerah"Qy$warnaAsal ["
+  tampil "$teksTebal+$teksAsal------------------------------------------$teksTebal+$teksAsal\n"
+}
+
+# fungsi bantuan penggunaan
+bantuan() {
+  tampil 'Nama paket tidak ditambahkan !\n'
+  tampil 'Penggunaan : \n  '$teksTebal"pasangin$teksAsal paket1 paket2 ... paketN\n"
+  tampil 'Contoh : \n  '$teksTebal"pasangin$teksAsal wget gparted\n"
+  tampil 'Pilihan : '
+  tampil '  -d  : Tampilkan detil proses'
+  tampil '  -md : Aktifkan mode diam '
+  tampil '  -g  : Gunakan GUI pada saat penyimpanan'
+  tampil '  -s  : Ya untuk simpan'
+  tampil '  -u  : Ya untuk unduh'
+  tampil '  -i  : Ya untuk pasang'
+  tampil '  -sn : Tidak untuk simpan'
+  tampil '  -un : Tidak untuk unduh'
+  tampil '  -in : Tidak untuk pasang'
+  tampil '  -b  : Sembunyikan banner'
+}
+
+# fungsi penghitung byte menjadi satuan lain. argumen :
+# 1. jumlah byte
+pangkasByte() {
+  ukuranAsal=$*
+
+  kiloByte=1024
+  megaByte=`expr $kiloByte \* $kiloByte`
+  gigaByte=`expr $kiloByte \* $megaByte`
+  teraByte=`expr $kiloByte \* $gigaByte`
+  petaByte=`expr $kiloByte \* $teraByte`
+
+  if [[ $ukuranAsal -ge $petaByte ]]; then
+    echo `expr $ukuranAsal / $petaByte`' pB'
+  elif [[ $ukuranAsal -ge $teraByte ]]; then
+    echo `expr $ukuranAsal / $teraByte`' tB'
+  elif [[ $ukuranAsal -ge $gigaByte ]]; then
+    echo `expr $ukuranAsal / $gigaByte`' gB'
+  elif [[ $ukuranAsal -ge $megaByte ]]; then
+    echo `expr $ukuranAsal / $megaByte`' mB'
+  elif [[ $ukuranAsal -ge $kiloByte ]]; then
+    echo `expr $ukuranAsal / $kiloByte`' kB'
+  else
+    echo $ukuranAsal' byte(s)'
+  fi
+}
+
+# fungsi pemasang 1 paket debian saja. argumen :
+# 1. lokasi paket debian 
+pasangDebianSatu() {
+  lokasiFile=$*
+  if [[ -f $lokasiFile ]]; then
+    sudo dpkg -i $lokasiFile
+  else
+    tampil "Paket $lokasiFile tidak ada."
+  fi
+}
+
+# fungsi pasang paket debian. argumen :
+# 1. lokasi berkas asal
+pasangDebian() {
+  lokasiDaftar=$*
+  paketRusak=0
+  berkasRusak=`realpath ./paket-rusak.log`
+
+  # cek jika log berkas paket rusak belum ada
+  if [[ ! -f $berkasRusak ]]; then
+    echo -e '# silahkan cari paket berikut secara manual' > $berkasRusak
+  fi
+  echo -e "\n# $jumlahPaket paket untuk '$namaProgram'" >> $berkasRusak
+
+  nomor=0
+
+  # mengumpulkan nama berkas paket Debian yang akan di pasang
+  # struktur file asal => link nama ukuran md5sum
+  koleksiPaket=`cat $lokasiDaftar | awk '{print $2}'`
+  for namaPaket in $koleksiPaket ; do
+    ukuranPaket=`cat $lokasiDaftar | grep -s -m 1 " "$namaPaket" " | awk '{print $3}'`
+
+    nomor=`expr $nomor + 1`
+
+    # cek keadaan berkas 
+    if [[ -f $namaPaket ]] ; then
+      ukuranBerkas=`ls -al "$namaPaket" | awk '{print $5}'`
+
+      # cek kesamaan ukuran paket dengan berkas yang ada
+      if [[ $ukuranPaket -ne $ukuranBerkas ]] ; then
+        paketRusak=`expr $paketRusak + 1`
+        kodeWarna=$warnaMerah
+      else
+        kodeWarna=$warnaAsal
+      fi
+      echo -e "$namaPaket" >> $berkasRusak
+    else
+      kodeWarna=$warnaMerah
+    fi
+
+    # menampilkan detil proses
+    if [[ $tampilDetil = true ]]; then
+      tampil "  $nomor. $kodeWarna$namaPaket$warnaAsal (`pangkasByte $ukuranBerkas`/`pangkasByte $ukuranPaket`)"
+    fi
+  done
+
+  # cek jika ada berkas paket yang rusak
+  if [[ $paketRusak -gt 0 ]]; then
+    tampil "Ada $paketRusak paket yang rusak."
+    tampil "Lihat di $berkasRusak"
+    tampil 'Untuk keamanan, sebaiknya temukan paket dalam daftar tersebut'
+    tampil 'sebelum melakukan pemasangan.'
+  else
+    tampil "Melakukan pemasangan $jumlahPaket paket debian untuk '$namaProgram'."
+    sudo dpkg -i $koleksiPaket
+  fi
+}
+
+# fungsi penyelesaian update. argumen :
+aptUpdate() {
+  lokasiSementara=`realpath ./.update-sementara`
+
+  # batalkan jika lokasi sementara tidak ada
+  if [[ ! -d $lokasiSementara ]]; then
+    return 0
+  fi
+
+  # lakukan penyelesaian jika direktori tidak kosong
+  if [[ `sudo ls $lokasiSementara | wc -l` -gt 0 ]]; then
+    sudo mv -u "$lokasiSementara"/* "$aptDir"
+    sudo apt-get --no-download update
+  else
+    tampil "Tidak ada sumber"
+  fi
+
+  # hapus lokasi sementara
+  rm -f -r $lokasiSementara
+}
+
+# fungsi inisialisasi update. argumen :
+# 1. lokasi berkas asal
+pasangUpdate() {
+
+  lokasiBerkas=`realpath $1`
+  lokasiSementara=`realpath ./.update-sementara`
+  lokasiBaru=$lokasiSementara'/'`basename $lokasiBerkas`
+
+  # cek lokasi ekstrak sementara, buat jika tidak ada
+  if [[ ! -d $lokasiSementara ]]; then
+    mkdir $lokasiSementara
+  fi
+
+  # salin berkas ke lokasi sementara
+  cp $lokasiBerkas $lokasiBaru
+
+  kompresi=false
+
+  # cek jika berupa berkas terkompresi maka ekstrak semuanya
+  if [[ $lokasiBerkas = *.gz ]]; then
+    gunzip "$lokasiSementara/*.gz"
+    kompresi=true
+  elif [[ $lokasiBerkas = *.bz2 ]]; then
+    bunzip2 "$lokasiSementara/*.bz2"
+    kompresi=true
+  fi
+
+  # jika berupa berkas dikompresi, hapus karena sudah di ekstrak
+  if [[ $kompresi = true ]]; then
+    rm -f -r $lokasiBaru
+  fi
+}
+
+# fungsi pemasangan paket argumen :
+# 1. lokasi berkas asal
+pasangPaket() {
+
+  lokasiDaftar=$1
+  paketDebian=0
+
+  # struktur berkas asal => link nama ukuran md5sum
+  daftarPaket=`cat $lokasiDaftar | awk '{print $2}'`
+  for paket in $daftarPaket; do
+
+    # jika berkas paket ada
+    if [[ -f $paket ]]; then
+
+      # jika berkas merupakan paket debian
+      if [[ $paket = *.deb ]]; then
+        paketDebian=`expr $paketDebian + 1`
+
+      # paket pembaharuan
+      elif [[ $paket = *(_Packages|_Sources|_Release)* ]]; then
+        pasangUpdate $paket
+      fi
+    else
+      tampil "[err] Paket $paket tidak ada $paket"
+    fi
+  done
+
+  # eksekusi update
+  aptUpdate
+
+  # ekseskusi paket debian
+  if [[ $paketDebian -gt 0 ]]; then
+    pasangDebian $lokasiDaftar
+  fi
+}
+
+# fungsi pengunduh daftar paket. argumen :
+# 1. nama program / paket,
+# 2. lokasi berkas asal
+unduhDaftar() {
+
+  namaProgram=$1
+  lokasiDaftar=`realpath $2`
+
+  # catatan proses dan perintah pengunduhan
+  logUnduhan=`realpath ./unduhan.log` 
+
+  tampil 'Mengunduh paket : '
+  jumlahKesalahan=0
+  nomor=0
+  tanggalUnduhan=`date +%F-%H-%M-%S`
+
+  echo -e "\n# dimulai pada $tanggalUnduhan untuk paket '$namaProgram'" >> $logUnduhan
+
+  # membuat perintah pengunduhan
+  # struktur berkas asal => link nama ukuran md5sum
+  koleksiPaket=`cat $lokasiDaftar | awk '{print $2}'`
+  for namaPaket in $koleksiPaket; do
+    linkPaket=`cat $lokasiDaftar | grep -s -m 1 " "$namaPaket" " | awk '{print $1}'`
+    ukuranPaket=`cat $lokasiDaftar | grep -s -m 1 " "$namaPaket" " | awk '{print $3}'`
+
+    nomor=`expr $nomor + 1`
+    if [[ $tampilDetil = true ]]; then
+      tampil "  $nomor. $namaPaket\c"
+    fi
+
+    konfirmasiUnduh=true
+
+    # inisialisasi dilakukannya pengunduhan berdasarkan ukuran berkas
+    if [[ -f $namaPaket ]]; then
+      ukuranBerkas=`ls -al $namaPaket | awk '{print $5}'`
+      if [[ $ukuranBerkas -eq $ukuranPaket ]]; then
+        konfirmasiUnduh=false
+      fi
+    fi
+
+    # melakukan pengunduhan jika sudah dikonfirmasi
+    if [[ $konfirmasiUnduh = true ]]; then
+      if [[ $tampilDetil = true ]]; then
+        tampil "diunduh\c"
+      fi
+      wget -c -t inf -a $logUnduhan $linkPaket -O $namaPaket
+    else
+      if [[ $tampilDetil = true ]]; then
+        tampil "sudah ada\c"
+      fi
+    fi
+
+    # jika berkas paket ada cek lainnya
+    if [[ -f $namaPaket ]]; then
+      ukuranBerkas=`ls -al $namaPaket | awk '{print $5}'`
+
+      # jika ukuran berkas dan paket tidak sama
+      if [[ $ukuranBerkas -ne $ukuranPaket ]]; then
+        jumlahKesalahan=`expr $jumlahKesalahan + 1`
+      fi
+    
+      if [[ $tampilDetil = true ]]; then
+        tampil "`pangkasByte $ukuranBerkas`/`pangkasByte $ukuranPaket`"
+      fi
+    else
+      if [[ $tampilDetil = true ]]; then
+        tampil 'hilang.'
+      fi
+    fi
+  done
+
+  # jika kesalahan / berkas tidak sesuai
+  if [[ $jumlahKesalahan -gt 0 ]]; then
+    tampil "Ada $jumlahKesalahan paket gagal diunduh"
+  fi
+
+  # jika pemasangan harus ditanyakan 
+  if [[ $tanyaPasang = true ]]; then
+    tampil "Pasang (install) '$namaProgram' ? [Y/n] \c"
+    read -r pilihan
+  fi
+
+  if [[ $pilihan = '' ]]; then
+    if [[ $tidakPasang = true ]]; then
+      pilihan='N'
+    else
+      pilihan='Y'
+    fi
+  fi
+
+  # pasang sesuai perintah
+  if [[ $pilihan = 'Y' ]] || [[ $pilihan = 'y' ]]; then
+    pasangPaket $lokasiDaftar
+  else
+  	tampil "Oke, tidak dipasang."
+  fi
+}
+
+# simpan dengan perintah wget. argumen : 
+# 1. lokasi berkas asal, 
+# 2. target penyimpanan
+simpanWget() {
+
+	lokasiDaftar=$1
+	daftarTarget=$2
+
+  # simpan jika lokasi berkas asal ada
+	if [[ -f $lokasiDaftar ]]; then
+		echo -e "# $jumlahPaket [`pangkasByte $ukuranBesar`] daftar yang harus diunduh\n" > $daftarTarget
+		cat $lokasiDaftar | awk '{print "wget -c -t inf " $1 " -O "$2}' >> $daftarTarget
+	else
+		tampil "Daftar hilang ($lokasiDaftar)"
+	fi
+}
+
+# fungsi penyimpanan daftar paket. argumen : 
+# 1. jumlah paket, 
+# 2. nama program / paket, 
+# 3.lokasi berkas asal
+simpanDaftar() {
+
+  jumlahPaket=$1
+  namaProgram=$2
+  lokasiDaftar=$3
+
+  # menggunakan dialog zenity atau kdialog
+  if [[ `which zenity | wc -l` -gt 0 ]] && [[ $tampilGUI = true ]]; then
+    namaFile=`zenity --file-selection --filename=paket-$namaProgram --save --confirm-overwrite  \
+    --title="Simpan daftar paket '$namaProgram' dengan nama ..." 2> /dev/null`
+  elif [[ `which kdialog | wc -l` -gt 0 ]] && [[ $tampilGUI = true ]]; then
+    namaFile=`kdialog --getsavefilename $HOME --title="Simpan daftar paket '$namaProgram' dengan nama ..." 2> /dev/null`
+  else
+    # tanpa dialog
+    namaAsal="./paket-$namaProgram"
+    if [[ $tanyaSimpan = true ]]; then
+      tampil "Simpan daftar paket '$namaProgram' dengan nama [$namaAsal] : \n  \c"
+      read -r namaFile
+    fi
+
+    # periksa nama berkas yang dimaksukkan
+    if [[ $namaFile = '' ]]; then
+      namaFile=`realpath $namaAsal`
+    else
+      namaFile=`realpath $namaFile`
+    fi
+  fi
+
+  # menyimpan dengan perintah wget
+  simpanWget "$lokasiDaftar" "$namaFile"
+
+  # periksa jika berhasil di salin
+  if [[ -O "$namaFile" ]]; then
+    tampil "Disimpan pada $namaFile"
+  else
+    tampil "Gagal menyimpan ke $namaFile"
+
+    # lokasi dan nama alternatif jika cara pertama gagal 
+    tanggal=`date +%F-%H-%M-%S`
+    namaFile=`realpath ./paket-$namaProgram_$tanggal`
+
+    tampil "Coba menyimpan ke $namaFile"
+    simpanWget "$lokasiDaftar" "$namaFile"
+  fi
+
+  # jika pengunduhan harus ditanyakan
+  if [[ $tanyaUnduh = true ]]; then
+    tampil "Unduh daftar '$namaProgram' ? [Y/n] \c"
+    read -r pilihan
+  else
+    pilihan=''
+  fi
+
+  if [[ $pilihan = '' ]]; then
+    if [[ $tidakUnduh = true ]]; then
+      pilihan='N'
+    else
+      pilihan='Y'
+    fi
+  fi
+
+  # unduh sesuai perintah
+  if [[ $pilihan = 'Y' ]] || [[ $pilihan = 'y' ]]; then
+    unduhDaftar $namaProgram $lokasiDaftar
+  else
+  	tampil 'Oke, tidak diunduh.'
+  fi
+}
+
+# fungsi pembuat daftar argumen : 
+# 1. nama program / paket
+buatDaftar() {
+  # nama program / paket yang akan diPasang
+  namaProgram=$*
+
+  # periksa untuk perintah 'update' dan 'upgrade'
+  if [[ "$namaProgram" = 'update' ]] || [[ "$namaProgram" = 'upgrade' ]]; then
+    perintah="$namaProgram"
+  else
+    perintah="install $namaProgram"
+  fi
+
+  tampil "Membuat daftar download '$namaProgram' ..."
+
+  # deklarasi penyimpanan sementara
+  tanggal=`date +%F-%H-%M-%S`
+  paketA=$HOME/.paket_A$tanggal
+  paketB=$HOME/.paket_B$tanggal
+  paketC=$HOME/.paket_C$tanggal
+
+  # meginisialisasi penginstalan dan mendapatkan informasi paket program
+  sudo apt-get -d -y --print-uris $perintah | grep http | sed s/\'//g | sed s/[0-9]%[0-9][a-z]//g > $paketA
+  cp -f $paketA $paketB
+  cat $paketA | grep -s InRelease | sed s/InRelease/Release/g >> $paketB
+  cat $paketA | grep -s InRelease | sed s/InRelease/Release.gpg/g >> $paketB
+
+  # menyaring daftar paket yang akan di download
+  # struktur daftar awal => link nama ukuran md5sum
+  cat $paketB | grep -s 'Packages.bz2\|Sources.bz2'| sed s/MD5Sum\://g | awk '{print $1" "$2".bz2 "$3" "$4}' > $paketC
+  cat $paketB | grep -s 'Packages.gz\|Sources.gz'| sed s/MD5Sum\://g | awk '{print $1" "$2".gz "$3" "$4}' >> $paketC
+  cat $paketB | grep -s '\.deb\|_Release'| sed s/MD5Sum\://g | awk '{print $1" "$2" "$3" "$4}' >> $paketC
+
+  # mendapatkan jumlah paket
+  jumlahPaket=`wc -l $paketC | cut -f1 "-d "`
+
+  # jumlah paket harus lebih dari 0
+  if [[ $jumlahPaket -gt 0 ]]; then
+
+    nomor=0
+    ukuranBesar=0
+    for namaPaket in `cat $paketC | awk '{print $2}'`; do
+      ukuranPaket=`cat $paketC | grep -s -m 1 " "$namaPaket" " | awk '{print $3}'`
+      ukuranBesar=`expr $ukuranBesar + $ukuranPaket`
+
+      nomor=`expr $nomor + 1`
+      if [[ $tampilDetil = true ]]; then
+        tampil '  '$nomor. $namaPaket " (`pangkasByte $ukuranPaket`)"
+      fi
+    done
+
+    tampil "Ada $jumlahPaket (`pangkasByte $ukuranBesar`) paket yang harus diunduh."
+
+    # jika penyimpanan harus ditanyakan
+    if [[ $tanyaSimpan = true ]]; then
+      tampil "Simpan ? [Y/n] \c"
+      read -r pilihan
+    fi
+
+    if [[ $pilihan = '' ]]; then
+      if [[ $tidakSimpan = true ]]; then
+        pilihan='N'
+      else
+        pilihan='Y'
+      fi
+    fi
+
+    # simpan sesuai perintah
+    if [[ $pilihan = 'Y' ]] || [[ $pilihan = 'y' ]]; then
+      simpanDaftar $jumlahPaket $namaProgram $paketC
+    else
+      tampil "Oke, daftar paket untuk '$namaProgram' tidak disimpan."
+    fi
+  else
+    tampil "Tidak ada yang bisa/perlu diunduh untuk '$namaProgram'."
+  fi
+
+  # menghapus berkas sementara di direktori $HOME atau ~/
+  rm -f $paketA
+  rm -f $paketB
+  rm -f $paketC
+}
+
+# fungsi proses awal. argumen :
+# 1. koleksi paket
+prosesAwal() {
+  # buat daftar jika argumen lebih dari 0
+  if [[ $# -gt 0 ]]; then
+    for aplikasi in $argumen; do
+      buatDaftar $aplikasi
+    done
+  else
+    bantuan
+  fi
+}
+
+# inisialisasi pilihan dan konfigurasi
+argumen=''
+pilihanSalah=0
+for arg in $*; do
+  case $arg in
+    '-s') tanyaSimpan=false;;
+    '-i') tanyaPasang=false;;
+    '-u') tanyaUnduh=false;;
+    '-sn') tanyaSimpan=false; tidakSimpan=true;;
+    '-in') tanyaPasang=false; tidakPasang=true;;
+    '-un') tanyaUnduh=false; tidakUnduh=true;;
+    '-d') tampilDetil=true;;
+    '-md') modeDiam=true;;
+    '-g') tampilGUI=true;;
+    '-b') tanpaBanner=true;;
+    -[!siudgb]*) tampil "Pilihan '$arg' tidak diketahui."; pilihanSalah=`expr $pilihanSalah + 1`;;
+    -*) tampil "Pilihan '$arg' tidak diketahui."; pilihanSalah=`expr $pilihanSalah + 1`;;
+    [!-]*) argumen="$argumen $arg";;
+  esac
+done
+
+# jika ada pilihan yang salah maka keluar
+if [[ $pilihanSalah -gt 0 ]]; then
+  exit
+fi
+
+# tampilkan banner
+if [[ $tanpaBanner = false ]]; then
+  banner
+fi
+
+# mulai proses
+prosesAwal $argumen

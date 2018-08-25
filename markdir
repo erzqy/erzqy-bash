@@ -1,0 +1,16 @@
+#!/bin/bash
+
+cariDi () {
+  lokasi=$*
+
+  find $lokasi -iname '*.markdown' -or -iname '*.md' -exec md2html {} \;
+}
+
+if [[ $# -gt 0 ]]; then
+  for direktori in $*; do
+    if [[ -d $direktori ]]; then
+      echo -e "Cari di $direktori"
+      cariDi $direktori
+    fi
+  done
+fi

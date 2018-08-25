@@ -1,0 +1,13 @@
+#!/bin/bash
+
+warnaMerah='\\033\[0m\\033\[31m'
+teksTebal='\\033\[1m'
+teksAsal='\\033\[0m'
+
+if [[ $# -gt 0 ]]; then
+
+  for paket in $*; do
+    apt search $paket
+    # | grep -s --color=always --regexp=$paket 
+  done
+fi

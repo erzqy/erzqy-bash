@@ -1,0 +1,163 @@
+#!/bin/bash
+
+echo -e "-----------------------------\n  >> apt-id <<\n-----------------------------"
+# a simple apt-get assistant for offline computers
+# versi 2013-02
+
+# --konfigurasi--
+#1
+apt_dir=/var/lib/apt/lists
+# directory update APT standar Ubuntu. jika distro Anda menggunakan directory lain, silahkan disesuaikan.
+#
+#2
+force_no_gui=0
+# 0 = apt-id akan menggunakan gui jika tersedia zenity/kdialog
+# 1 = apt-id akan menggunakan mode terminal meskipun tersedia zenity/kdialog
+#
+
+if [ $# -gt 0 ]; then
+	opsi="$1"
+else
+	echo -e "Selamat datang di apt-id. Apa yang ingin Anda lakukan?\n 1 = membuat daftar download\n 2 = eksekusi hasil download\n 3 = about apt-id\n 4 = keluar\n\nPilihan Anda : \c"
+	read -r opsi
+fi
+
+if [ $opsi -eq 1 ]; then
+echo -e "# Membuat Daftar Download #"
+echo -e "\nSilahkan masukkan perintah yang diinginkan :\nsudo apt-get \c"
+read -r perintah
+#untuk Ubuntu lama (misalnya 10.04) masih butuh sudo
+sudo apt-get -d -y --print-uris $perintah | grep http | sed s/\'//g > $HOME/.apt-id_listA
+cp -f $HOME/.apt-id_listA $HOME/.apt-id_listB
+cat $HOME/.apt-id_listA | grep -s InRelease | sed s/InRelease/Release/g >> $HOME/.apt-id_listB
+cat $HOME/.apt-id_listA | grep -s InRelease | sed s/InRelease/Release.gpg/g >> $HOME/.apt-id_listB
+cat $HOME/.apt-id_listB | grep -s 'Packages.bz2\|Sources.bz2' | awk '{print "wget -c --tries=inf " $1 " --output-document=" $2".bz2"}' > $HOME/.apt-id_listRC
+#meskipun sepertinya tidak ada .gz
+cat $HOME/.apt-id_listB | grep -s 'Packages.gz\|Sources.gz' | awk '{print "wget -c --tries=inf " $1 " --output-document=" $2".gz"}' >> $HOME/.apt-id_listRC
+cat $HOME/.apt-id_listB | grep -s '\.deb\|_Release' | awk '{print "wget -c --tries=inf " $1 " --output-document=" $2}' >> $HOME/.apt-id_listRC
+NUM1=`wc -l $HOME/.apt-id_listRC | cut -f1 "-d "`
+echo -e "\nDitemukan $NUM1 item yang harus didownload\n"
+if [ $NUM1 -gt 0 ]; then
+	echo -e "Simpan sebagai daftar download?\n\t1=Ya\t2=Tidak\nPilih : \c"
+	read -r simpan
+	if [ $simpan -eq 1 ]; then
+		if [ `which zenity | wc -l` -gt 0 -a $force_no_gui -eq 0 ]; then
+			nama_file=`zenity --file-selection --save --confirm-overwrite --title="apt-id : Simpan Daftar Download dengan Nama..." 2> /dev/null`
+			echo -e "\nSimpan daftar dengan nama : $nama_file"
+		elif [ `which kdialog | wc -l` -gt 0 -a $force_no_gui -eq 0 ]; then
+			nama_file=`kdialog --getsavefilename $HOME --title "apt-id : Simpan Daftar Download dengan Nama..." 2> /dev/null`
+			echo -e "\nSimpan daftar dengan nama : $nama_file"
+		else
+			echo -e "\nSimpan daftar dengan nama : \c"
+			read -r nama_file
+			eval nama_file=$nama_file
+		fi
+		mv $HOME/.apt-id_listRC "$nama_file"
+		if [ -O "$nama_file" ]; then
+			echo -e "OK\n"
+		else
+			tanggal=`date +%F__%Hh%Mm%S`
+			mv "$HOME/.apt-id_listRC" "$HOME/daftar-download_$tanggal.bat"
+			echo -e "\nPemberian nama "$nama_file" gagal.\nDialihkan penyimpanan otomatis :\n$HOME/daftar-download_$tanggal.bat\n"
+		fi
+	elif [ $simpan -eq 2 ]; then
+		echo -e "\nDaftar tidak disimpan.\n"
+	else
+		echo -e "\nPilihan Anda tidak tersedia. Daftar tidak disimpan.\n"
+	fi
+fi
+rm -f $HOME/.apt-id_list*
+exit 0
+
+elif [ $opsi -eq 2 ]; then
+echo -e "# Eksekusi Hasil Download #"
+	if [ `which zenity | wc -l` -gt 0 -a $force_no_gui -eq 0 ]; then
+		echo -e "\nSilahkan pilih directory"
+		folder=`zenity --file-selection --directory --title="apt-id : Pilih Directory..." 2> /dev/null`
+		if [ ! -d "$folder" ]; then
+			echo -e "Dibatalkan.\n"
+			exit 0
+		fi
+		echo "Directory yang dipilih : $folder"
+	elif [ `which kdialog | wc -l` -gt 0 -a $force_no_gui -eq 0 ]; then
+		echo -e "\nSilahkan pilih directory"
+		folder=`kdialog --getexistingdirectory $HOME --title "apt-id : Pilih Directory..." 2> /dev/null`
+		if [ ! -d "$folder" ]; then
+			echo -e "Dibatalkan.\n"
+			exit 0
+		fi
+		echo "Directory yang dipilih : $folder"
+	else
+		echo -e "\nSilahkan masukkan letak directory : \c"
+		read -r folder
+		eval folder=$folder
+		if [ ! -d "$folder" ]; then
+			echo -e "Directory tidak ditemukan.\n"
+			exit 0
+		fi
+	fi
+NUMdeb=`ls -1 "$folder" | grep -s "\.deb" | wc -l`
+NUMupdt=`ls -1 "$folder" | grep -s '_Packages\|_Sources\|_Release' | wc -l`
+echo -e "\nDitemukan $NUMdeb file .deb dan $NUMupdt berkas update"
+if [ $NUMdeb -gt 0 -a $NUMupdt -gt 0 ]; then
+	echo -e "\nKonfirmasi : Semua file .deb akan di-install dan database APT akan di-update"
+elif [ $NUMdeb -gt 0 ]; then
+	echo -e "\nKonfirmasi : Semua file .deb akan di-install"
+elif [ $NUMupdt -gt 0 ]; then
+	echo -e "\nKonfirmasi : Database APT akan di-update"
+else
+	echo -e "Tidak ada eksekusi yang bisa dilakukan apt-id\n"
+	exit 0
+fi
+echo -e "  1=Laksanakan\n  2=Batalkan\n\nPilih : \c"
+read -r konfirmasi
+if [ $konfirmasi -eq 1 ]; then
+	echo -e "\nMemproses . . ."
+elif [ $konfirmasi -eq 2 ]; then
+	echo -e "Dibatalkan.\n"
+	exit 0
+else
+	echo -e "Pilihan Anda tidak tersedia.\nEksekusi dibatalkan.\n"
+	exit 0
+fi
+if [ $NUMdeb -gt 0 ]; then
+	sudo dpkg -i "$folder"/*.deb
+fi
+if [ $NUMupdt -gt 0 ]; then
+	rm -f -r $HOME/.apt-id_tmp
+	mkdir $HOME/.apt-id_tmp
+	eval folder_tmp=$HOME/.apt-id_tmp
+	if [ `ls "$folder" | grep -s '_Packages' | wc -l` -gt 0 ]; then
+		cp "$folder"/*_Packages* "$folder_tmp" 
+	fi
+	if [ `ls "$folder" | grep -s "_Sources" | wc -l` -gt 0 ]; then
+		cp "$folder"/*_Sources* "$folder_tmp" 
+	fi
+	if [ `ls "$folder" | grep -s "_Release" | wc -l` -gt 0 ]; then
+		cp "$folder"/*_Release* "$folder_tmp" 
+	fi
+	if [ `ls "$folder_tmp" | grep -s "\.bz2" | wc -l` -gt 0 ]; then
+		bunzip2 "$folder_tmp"/*.bz2
+	fi
+	if [ `ls $folder_tmp | grep -s "\.gz" | wc -l` -gt 0 ]; then
+		gunzip "$folder_tmp"/*.gz
+	fi
+	sudo mv -u "$folder_tmp"/* "$apt_dir"
+	sudo apt-get --no-download update
+	rm -f -r "$folder_tmp"
+fi
+exit 0
+
+elif [ $opsi -eq 3 ]; then
+echo "# About apt-id #"
+echo -e "\nApt-id adalah bash script sederhana yang bertujuan mempermudah penggunaan apt-get di komputer yang tidak / kurang memiliki sambungan internet.\nApt-id akan mensimulasikan perintah apt-get untuk menghasilkan daftar file yang harus di-download. Daftar download yang dihasilkan apt-id berformat script yang dapat dijalankan di Windows maupun Linux dengan bantuan GNU Wget (http://www.gnu.org/software/wget/). Apt-id juga akan mengatur agar file-file yang telah di-download tereksekusi sebagaimana mestinya.\nApt-id bebas digunakan dan disebarluaskan, namun tanpa garansi apapun. Pertanyaan atau saran dapat ditujukan ke elektronifa[at]yahoo.co.id\n\n    @2013-02   -nif-\n"
+exit 0
+
+elif [ $opsi -eq 4 ]; then
+echo -e "Terminated\n"
+exit 0
+
+else
+echo -e "Pilihan yang tersedia : 1 2 3 4\nPilihan Anda tidak dikenali\n"
+exit 0
+fi

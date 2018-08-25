@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+for berkas in `find ./ -iname '*.deb'`; do
+
+  hal=`file $berkas | grep -s 'Debian binary package' | wc -l`; 
+  if [[ $hal -lt 1 ]]; then
+    echo 'hapus '$berkas
+    # rm $berkas
+  fi
+done

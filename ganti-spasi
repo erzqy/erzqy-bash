@@ -1,0 +1,18 @@
+#!/bin/bash
+
+gantiSpasi() {
+  asal=$*
+  baru=`echo  $asal | sed s/\ /_/g`
+  echo $baru
+}
+
+gantiNama() {
+  namaAsal=$*
+  namaBaru=`gantiSpasi $namaAsal`
+
+  mv -v "$namaAsal" $namaBaru
+}
+
+if [[ $# -gt 0 ]]; then
+  gantiNama $*
+fi

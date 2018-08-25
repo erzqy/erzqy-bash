@@ -1,0 +1,66 @@
+#!/bin/bash
+
+arguments=$*
+pake='lynx'
+privasi=false
+
+tampil() {
+  echo -e $*
+}
+
+if [[ $# -le 0 ]]; then
+  tampil 'Nyari apaan, malah kosong ? tulis => \c'
+  read -r arguments
+fi
+
+arguments=`echo $arguments | tr ' ' '+'`
+googleQuery='www.google.co.id/search?q='$arguments
+
+lynx $googleQuery
+
+# chromiumVers=`chromium-browser --version | awk '{print $1}' | tr 'A-Z' 'a-z'`
+# firefoxVers=`firefox --version | awk '{print $1}' | tr 'A-Z' 'a-z'`
+
+# if [[ $chromiumVers = 'chromium' ]] && [[ $pake = $chromiumVers ]]; then
+#   tampil 'Pake Chromium browser aja ternyata'
+#   pilihan=''
+#   if [[ $privasi = true ]]; then
+#     pilihan=$pilihan' --incognito'
+#   fi
+#   exec chromium-browser $pilihan $googleQuery
+# else
+#   tampil 'Chromium browser nggak ada atau nggak pengen make ?'
+#   tampil 'Sekarang lagi coba pake Firefox \c'
+#   if [[ $firefoxVers = 'mozilla' ]] && [[ $pake = $firefoxVers ]]; then
+#     tampil ', ternyata Mozilla Firefoxnya ada.'
+#     pilihan='--new-tab'
+#     if [[ $privasi = true ]]; then
+#       pilihan=$pilihan' --private-window'
+#     fi
+#     exec firefox $pilihan $googleQuery
+#   else
+#     tampil 'malah Mozilla Firefox juga nggak ada atau emang nggak dipake juga ?'
+#     tampil 'sebenernya browsing pake apa sih ? : \c'
+#     read -r browserPilihan
+
+#     if [[ ! $browserPilihan = '' ]]; then
+#       tampil 'emang ada browser yang namanya "'$browserPilihan'" ? [y/n] : \c'
+#       read -r konfirmasi
+
+#       if [[ $konfirmasi = 'y' ]] || [[ $konfirmasi = 'Y' ]]; then
+#         tampil 'Oke, coba pake browser anu, maksudnya "'$browserPilihan'". hihi, kalo error lu tanggung ndiri ya. coba lu pencet [Enter] \c '
+#         read -r enterKey
+#         if [[ ! $enterKey = '' ]]; then
+#           tampil 'duh, nggak usah pake isian "'$enterKey'" segala !'
+#         fi
+#         exec $browserPilihan $googleQuery
+#       elif [[ $konfirmasi = 'n' ]] || [[ $konfirmasi = 'N' ]]; then
+#         tampil 'Yaelah, kalo nggak yakin nggak usah ! :p'
+#       else
+#         tampil 'Ngaco ni orang, ditanya "y" / "n" malah dijawab "'$konfirmasi'". XD'
+#       fi
+#     else
+#       tampil 'Yaudah, nggak jadi googling, fieldnya dikosongin.'
+#     fi
+#   fi
+# fi
