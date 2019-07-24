@@ -1,2 +1,2 @@
 # erzqy-scripts
-Scripts days
+Bash scripts.
