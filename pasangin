@@ -1,5 +1,8 @@
 #!/bin/bash
 
+__version__=0.2
+__author__=erzqy
+
 aptDir=/var/lib/apt/lists
 tampilGUI=false
 tampilDetil=false
@@ -38,7 +41,7 @@ banner() {
   tampil "] * *                                  * * ["
   tampil "]   Selamat datang di program '"$teksTebal"pasangin$teksAsal'   ["
   tampil "]                                          ["
-  tampil "]                                  - by "$warnaBiruCerah"Qy$warnaAsal ["
+  tampil "]                               - by "$warnaBiruCerah"$__author__$warnaAsal ["
   tampil "$teksTebal+$teksAsal------------------------------------------$teksTebal+$teksAsal\n"
 }
 
