@@ -1,0 +1,16 @@
+#!/bin/bash
+
+echo "Stoping the ModemManager. "
+sudo systemctl stop ModemManager
+echo "Checking wvdial & sakis3g"
+which wvdial
+which sakis3g
+
+if [[ -f `which wvdial` ]]; then
+  echo "Using wvdial & modprobe"
+  # sudo modprobe usbserial vendor=0x19d2 product=0x1253
+  sudo wvdial
+elif [[ -f `which sakis3g` ]]; then
+  echo "Using sakis3g interactive"
+  QT_X11_NO_MITSHM=1 sakis3g --interactiveterminal
+fi
