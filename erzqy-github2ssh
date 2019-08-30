@@ -2,4 +2,4 @@
 
 lokasi=`realpath $*`
 
-cat lokasi
+cat $lokasi | sed -e 's/https\:\/\/github.com\//git@github.com\:/g'
