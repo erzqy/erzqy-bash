@@ -19,7 +19,7 @@ for paket in $argumen; do
   cd $paket
   
   echo -e "3. Siapkan pemasangan"
-  pasangin $paket -b -s -in -un -md
+  erzqy-pasangin $paket -b -s -in -un -md
   
   echo -e "4. Kembali ke direktori asal"
   cd ..

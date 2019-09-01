@@ -2,4 +2,18 @@
 
 lokasi=`realpath $*`
 
-sed -i -e 's/https\:\/\/github.com\//git@github.com\:/g' $lokasi
+awal=`grep -o -i -e "https://github.com/.*" --color=always "$lokasi"`
+
+if [[ `echo $awal | wc -w` -ge 1 ]]; then
+
+  ganti=`echo $awal | sed -e 's/https\:\/\/github.com\//git@github.com\:/g'`
+
+  if [[ `echo $awal | grep -o -i -e "https://github.com/.*\.git" | wc -w ` -lt 1 ]]; then
+    ganti=$ganti".git"
+  fi
+
+  echo $lokasi
+  echo $awal "->" $ganti
+
+  sed -i 's|'$awal'|'$ganti'|g' "$lokasi"
+fi
